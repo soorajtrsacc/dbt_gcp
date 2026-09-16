@@ -131,8 +131,8 @@ select
     current_timestamp()     as gold_created_ts,
     to_hex(sha256(to_json_string(struct(r.reward_id, r.card_id, r.customer_id, r.program_type)))) as gold_record_hash
 from rewards r
-left join cards c                   using (card_id)
-left join card_types ct             using (card_type_id)
-left join customers cu              using (customer_id)
-left join redemption_agg rd         using (reward_id)
-left join spend_agg s               using (card_id)
+left join cards c                   on c.card_id = r.card_id
+left join card_types ct             on ct.card_type_id = c.card_type_id
+left join customers cu              on cu.customer_id = r.customer_id
+left join redemption_agg rd         on rd.reward_id = r.reward_id
+left join spend_agg s               on s.card_id = r.card_id

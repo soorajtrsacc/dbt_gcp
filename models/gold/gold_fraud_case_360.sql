@@ -171,10 +171,10 @@ select
     current_timestamp() as gold_created_ts,
     to_hex(sha256(to_json_string(struct(fa.alert_id, fa.card_id, fa.alert_type)))) as gold_record_hash
 from fraud_alerts fa
-left join transactions t    using (transaction_id)
-left join cards cc           using (card_id)
-left join customers c        using (customer_id)
-left join merchants m        using (merchant_id)
-left join dispute_flag d     using (transaction_id)
-left join chargeback_flag cb using (transaction_id)
-left join velocity_agg v     using (transaction_id)
+left join transactions t    on t.transaction_id = fa.transaction_id
+left join cards cc           on cc.card_id = fa.card_id
+left join customers c        on c.customer_id = cc.customer_id
+left join merchants m        on m.merchant_id = t.merchant_id
+left join dispute_flag d     on d.transaction_id = fa.transaction_id
+left join chargeback_flag cb on cb.transaction_id = fa.transaction_id
+left join velocity_agg v     on v.transaction_id = fa.transaction_id
