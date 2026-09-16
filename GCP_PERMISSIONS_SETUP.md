@@ -3,16 +3,20 @@
 ## Project & Datasets
 
 **GCP Project:** `acn-uki-ds-data-ai-project`  
-**Region:** `EU`
+**Region:** `europe-west2`
+
+> **Important:** All datasets must use the single region `europe-west2`, **not** the multi-region `EU`.
+> BigQuery does not allow cross-region queries between `EU` and `europe-west2`.
+> In `profiles.yml` set `location: europe-west2` (not `location: EU`).
 
 ### BigQuery Datasets to Create
 
 Run these once before first `dbt build`:
 
 ```bash
-bq --location=EU mk --dataset acn-uki-ds-data-ai-project:silver
-bq --location=EU mk --dataset acn-uki-ds-data-ai-project:gold
-bq --location=EU mk --dataset acn-uki-ds-data-ai-project:ops
+bq --location=europe-west2 mk --dataset acn-uki-ds-data-ai-project:silver
+bq --location=europe-west2 mk --dataset acn-uki-ds-data-ai-project:gold
+bq --location=europe-west2 mk --dataset acn-uki-ds-data-ai-project:ops
 ```
 
 The source dataset `credit_card_synt` already exists (created by credit_card_synthetic.py).
@@ -133,5 +137,6 @@ dbt docs serve
 | `Access Denied: Dataset acn-uki-ds-data-ai-project:silver` | Dataset doesn't exist or no WRITE permission | Run `bq mk` + grant `dataEditor` |
 | `Access Denied: Table credit_card_synt.customers` | No READ permission on source | Grant `dataViewer` on `credit_card_synt` |
 | `Not found: Dataset acn-uki-ds-data-ai-project:ops` | ops dataset not created | Run `bq mk --dataset acn-uki-ds-data-ai-project:ops` |
+| `Not found: Dataset ... was not found in location EU` | `profiles.yml` has `location: EU` but datasets are in `europe-west2` | Set `location: europe-west2` in `profiles.yml` |
 | `Could not serialize access` | Concurrent DML on same partition | Reduce `--threads` in profiles.yml |
 | `dbt debug` fails with auth error | ADC not configured | Run `gcloud auth application-default login` |
