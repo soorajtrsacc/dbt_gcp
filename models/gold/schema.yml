@@ -1,0 +1,186 @@
+version: 2
+
+models:
+  - name: gold_customer_360
+    description: >
+      Canonical 360-degree customer view. One row per customer. Joins customer master with
+      primary address, account aggregates, card portfolio, rewards, KYC status, contact history,
+      and payment behaviour. Source of truth for CRM and BI customer analytics.
+    columns:
+      - name: customer_id
+        description: "Primary key — unique customer identifier."
+        tests: [unique, not_null]
+      - name: full_name
+        tests: [not_null]
+      - name: customer_status
+        tests: [not_null]
+      - name: gold_entity_name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["customer_360"]
+      - name: gold_created_ts
+        tests: [not_null]
+      - name: gold_record_hash
+        tests: [not_null]
+
+  - name: gold_transaction_360
+    description: >
+      Enriched transaction ledger. One row per transaction. Joins transactions with card, customer,
+      merchant, transaction type, MCC, fraud alerts, disputes, and velocity hits.
+      Partitioned by transaction_date, clustered by customer_id and merchant_id.
+    columns:
+      - name: transaction_id
+        description: "Primary key — unique transaction identifier."
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('gold_customer_360')
+              field: customer_id
+      - name: merchant_id
+        tests:
+          - relationships:
+              to: ref('gold_merchant_performance')
+              field: merchant_id
+      - name: amount
+        tests: [not_null]
+      - name: transaction_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Posted", "Pending", "Declined", "Reversed"]
+      - name: gold_entity_name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["transaction_360"]
+      - name: gold_record_hash
+        tests: [not_null]
+
+  - name: gold_merchant_performance
+    description: >
+      Merchant performance entity. One row per merchant. Aggregates transaction volume, dispute rates,
+      chargeback metrics, and blacklist status. Used for merchant risk analytics.
+    columns:
+      - name: merchant_id
+        description: "Primary key — unique merchant identifier."
+        tests: [unique, not_null]
+      - name: merchant_name
+        tests: [not_null]
+      - name: mcc_code
+        tests: [not_null]
+      - name: merchant_risk_tier
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["LOW_RISK", "MEDIUM_RISK", "HIGH_RISK", "BLACKLISTED"]
+      - name: gold_entity_name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["merchant_performance"]
+      - name: gold_record_hash
+        tests: [not_null]
+
+  - name: gold_account_financial_summary
+    description: >
+      Comprehensive account financial summary. One row per account. Aggregates credit card portfolio,
+      statement history, payment behaviour, fees, interest rates, credit limits, and EMI plans.
+      Used for credit risk and account management analytics.
+    columns:
+      - name: account_id
+        description: "Primary key — unique account identifier."
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('gold_customer_360')
+              field: customer_id
+      - name: account_status
+        tests: [not_null]
+      - name: delinquency_bucket
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Current", "30-60 DPD", "60-90 DPD", "90+ DPD"]
+      - name: gold_entity_name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["account_financial_summary"]
+      - name: gold_record_hash
+        tests: [not_null]
+
+  - name: gold_fraud_case_360
+    description: >
+      Full fraud case 360 view. One row per fraud alert. Links alert to transaction, card,
+      customer, merchant, disputes, chargebacks, and velocity hits. Used for fraud investigation
+      and regulatory reporting.
+    columns:
+      - name: alert_id
+        description: "Primary key — unique fraud alert identifier."
+        tests: [unique, not_null]
+      - name: card_id
+        tests: [not_null]
+      - name: alert_type
+        tests: [not_null]
+      - name: alert_status
+        tests: [not_null]
+      - name: case_resolution_status
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - "CHARGEBACK_RAISED"
+                - "DISPUTED"
+                - "FRAUD_CONFIRMED_NO_ACTION"
+                - "FALSE_POSITIVE"
+                - "RESOLVED"
+                - "OPEN"
+      - name: gold_entity_name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["fraud_case_360"]
+      - name: gold_record_hash
+        tests: [not_null]
+
+  - name: gold_rewards_engagement
+    description: >
+      Rewards engagement entity. One row per rewards programme enrollment (one per card).
+      Joins rewards with card, customer, redemptions, and spend data to compute ROI,
+      engagement tier, and redemption ratios. Used for loyalty analytics.
+    columns:
+      - name: reward_id
+        description: "Primary key — unique rewards account identifier."
+        tests: [unique, not_null]
+      - name: card_id
+        tests: [not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('gold_customer_360')
+              field: customer_id
+      - name: program_type
+        tests: [not_null]
+      - name: engagement_tier
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - "HIGHLY_ENGAGED"
+                - "ENGAGED"
+                - "ACTIVE"
+                - "SPENDING_NOT_REDEEMING"
+                - "INACTIVE"
+      - name: gold_entity_name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["rewards_engagement"]
+      - name: gold_record_hash
+        tests: [not_null]

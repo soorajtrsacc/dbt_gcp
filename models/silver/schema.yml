@@ -1,0 +1,427 @@
+version: 2
+
+models:
+  - name: silver_customers
+    description: "Typed and DQ-checked customer records. One row per customer. SAFE_CAST applied to date/numeric columns."
+    columns:
+      - name: customer_id
+        description: "Primary key."
+        tests: [unique, not_null]
+      - name: first_name
+        tests: [not_null]
+      - name: last_name
+        tests: [not_null]
+      - name: customer_status
+        tests: [not_null]
+      - name: dq_status
+        tests:
+          - accepted_values:
+              values: ["PASS", "FAIL"]
+
+  - name: silver_addresses
+    description: "Typed and DQ-checked address records."
+    columns:
+      - name: address_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+
+  - name: silver_accounts
+    description: "Typed and DQ-checked bank account records."
+    columns:
+      - name: account_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: account_status
+        tests: [not_null]
+
+  - name: silver_credit_cards
+    description: "Typed and DQ-checked credit card instrument records."
+    columns:
+      - name: card_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: account_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_accounts')
+              field: account_id
+      - name: card_type_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_dim_card_types')
+              field: card_type_id
+      - name: card_status
+        tests: [not_null]
+
+  - name: silver_merchants
+    description: "Typed and DQ-checked merchant master records."
+    columns:
+      - name: merchant_id
+        tests: [unique, not_null]
+      - name: merchant_name
+        tests: [not_null]
+      - name: mcc_code
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_dim_merchant_categories')
+              field: mcc_code
+
+  - name: silver_transactions
+    description: "Typed and DQ-checked transaction ledger."
+    columns:
+      - name: transaction_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: merchant_id
+        tests:
+          - relationships:
+              to: ref('silver_merchants')
+              field: merchant_id
+      - name: amount
+        tests: [not_null]
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Posted", "Pending", "Declined", "Reversed"]
+
+  - name: silver_statements
+    description: "Typed and DQ-checked monthly billing statements."
+    columns:
+      - name: statement_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: payment_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Paid", "Partial", "Missed", "Pending"]
+
+  - name: silver_payments
+    description: "Typed and DQ-checked payment records."
+    columns:
+      - name: payment_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: amount
+        tests: [not_null]
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Cleared", "Pending", "Failed"]
+
+  - name: silver_fees
+    description: "Typed and DQ-checked fee charge records."
+    columns:
+      - name: fee_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: fee_type
+        tests: [not_null]
+
+  - name: silver_fraud_alerts
+    description: "Typed and DQ-checked fraud alert records."
+    columns:
+      - name: alert_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: alert_type
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
+
+  - name: silver_disputes
+    description: "Typed and DQ-checked dispute case records."
+    columns:
+      - name: dispute_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: dispute_reason
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
+
+  - name: silver_chargeback_cases
+    description: "Typed and DQ-checked chargeback case records."
+    columns:
+      - name: chargeback_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: current_stage
+        tests: [not_null]
+
+  - name: silver_velocity_hits
+    description: "Typed and DQ-checked velocity rule hit records."
+    columns:
+      - name: hit_id
+        tests: [unique, not_null]
+      - name: rule_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_dim_velocity_rules')
+              field: rule_id
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: action_taken
+        tests: [not_null]
+
+  - name: silver_merchant_blacklist
+    description: "Typed and DQ-checked merchant blacklist records."
+    columns:
+      - name: blacklist_id
+        tests: [unique, not_null]
+      - name: merchant_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_merchants')
+              field: merchant_id
+      - name: blacklist_reason
+        tests: [not_null]
+
+  - name: silver_rewards
+    description: "Typed and DQ-checked rewards programme enrollment records."
+    columns:
+      - name: reward_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: program_type
+        tests: [not_null]
+
+  - name: silver_reward_redemptions
+    description: "Typed and DQ-checked reward redemption events."
+    columns:
+      - name: redemption_id
+        tests: [unique, not_null]
+      - name: reward_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_rewards')
+              field: reward_id
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: status
+        tests: [not_null]
+
+  - name: silver_kyc_documents
+    description: "Typed and DQ-checked KYC identity document records."
+    columns:
+      - name: kyc_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: document_type
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
+
+  - name: silver_contact_history
+    description: "Typed and DQ-checked customer service contact log."
+    columns:
+      - name: contact_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: channel
+        tests: [not_null]
+
+  - name: silver_emi_plans
+    description: "Typed and DQ-checked EMI instalment plan records."
+    columns:
+      - name: emi_plan_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: status
+        tests: [not_null]
+
+  - name: silver_notifications
+    description: "Typed and DQ-checked customer notification records."
+    columns:
+      - name: notification_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: notification_type
+        tests: [not_null]
+
+  - name: silver_credit_limit_history
+    description: "Typed and DQ-checked credit limit change history."
+    columns:
+      - name: limit_history_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: new_limit
+        tests: [not_null]
+
+  - name: silver_interest_rates
+    description: "Typed and DQ-checked card interest rate schedule."
+    columns:
+      - name: rate_id
+        tests: [unique, not_null]
+      - name: card_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_credit_cards')
+              field: card_id
+      - name: rate_type
+        tests: [not_null]
+      - name: apr
+        tests: [not_null]
+
+  - name: silver_dim_card_types
+    description: "Typed and DQ-checked card product type reference."
+    columns:
+      - name: card_type_id
+        tests: [unique, not_null]
+      - name: card_name
+        tests: [not_null]
+      - name: network
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["VISA", "MASTERCARD", "AMEX"]
+      - name: tier
+        tests: [not_null]
+
+  - name: silver_dim_merchant_categories
+    description: "Typed and DQ-checked MCC reference data."
+    columns:
+      - name: mcc_code
+        tests: [unique, not_null]
+      - name: category_name
+        tests: [not_null]
+      - name: category_group
+        tests: [not_null]
+
+  - name: silver_dim_transaction_types
+    description: "Typed and DQ-checked transaction type reference."
+    columns:
+      - name: txn_type_id
+        tests: [unique, not_null]
+      - name: type_name
+        tests: [not_null]
+
+  - name: silver_dim_velocity_rules
+    description: "Typed and DQ-checked velocity rule definitions."
+    columns:
+      - name: rule_id
+        tests: [unique, not_null]
+      - name: rule_name
+        tests: [not_null]
+      - name: action
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Alert", "Block"]
+
+  - name: silver_relationship_dq_results
+    description: "FK orphan check results across all Silver parent-child relationships. PASS = zero orphans."
+    columns:
+      - name: fk_status
+        tests:
+          - accepted_values:
+              values: ["PASS", "FAIL"]

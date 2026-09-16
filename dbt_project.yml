@@ -1,0 +1,71 @@
+name: 'credit_card_medallion'
+version: '1.0.0'
+config-version: 2
+
+profile: 'credit_card_medallion'
+
+model-paths:  ["models"]
+seed-paths:   ["seeds"]
+macro-paths:  ["macros"]
+test-paths:   ["tests"]
+analysis-paths: ["analyses"]
+docs-paths:   ["docs"]
+
+target-path:  "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  project_id:    "acn-uki-ds-data-ai-project"
+  bronze_dataset: "credit_card_synt"
+  source_system: "SYNTHETIC_CARD_PLATFORM"
+
+models:
+  credit_card_medallion:
+    bronze:
+      +schema: bronze
+      +materialized: view
+      +tags: ["bronze"]
+    silver:
+      +schema: silver
+      +materialized: table
+      +tags: ["silver"]
+    gold:
+      +schema: gold
+      +materialized: table
+      +tags: ["gold"]
+      gold_transaction_360:
+        +partition_by:
+          field: transaction_date
+          data_type: date
+          granularity: day
+        +cluster_by: ["customer_id", "merchant_id"]
+      gold_account_financial_summary:
+        +partition_by:
+          field: gold_created_ts
+          data_type: timestamp
+          granularity: day
+    ops:
+      +schema: ops
+      +materialized: table
+      +tags: ["ops"]
+
+seeds:
+  credit_card_medallion:
+    +schema: ops
+    +quote_columns: false
+    mapping_input:
+      +column_types:
+        source_layer: string
+        source_object: string
+        target_layer: string
+        target_object: string
+        dbt_model: string
+    relationship_definitions:
+      +column_types:
+        child_table: string
+        fk_column: string
+        parent_table: string
+        pk_column: string
+        cardinality: string

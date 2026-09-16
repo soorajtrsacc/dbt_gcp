@@ -1,0 +1,38 @@
+child_table,fk_column,parent_table,pk_column,cardinality,notes
+addresses,customer_id,customers,customer_id,many-to-one,Each customer has 1-3 addresses
+accounts,customer_id,customers,customer_id,many-to-one,Each customer has 1 account
+credit_cards,customer_id,customers,customer_id,many-to-one,Each customer has 1-3 cards
+credit_cards,account_id,accounts,account_id,many-to-one,Card linked to one bank account
+credit_cards,card_type_id,dim_card_types,card_type_id,many-to-one,Card product classification
+merchants,mcc_code,dim_merchant_categories,mcc_code,many-to-one,Merchant category code
+transactions,card_id,credit_cards,card_id,many-to-one,Transaction on a card
+transactions,merchant_id,merchants,merchant_id,many-to-one,Transaction at a merchant
+transactions,txn_type_id,dim_transaction_types,txn_type_id,many-to-one,Transaction type classification
+transactions,mcc_code,dim_merchant_categories,mcc_code,many-to-one,MCC at time of transaction
+statements,card_id,credit_cards,card_id,many-to-one,Monthly statement per card
+payments,statement_id,statements,statement_id,many-to-one,Payment against a statement
+payments,card_id,credit_cards,card_id,many-to-one,Payment on a card
+fees,card_id,credit_cards,card_id,many-to-one,Fee charged to a card
+fees,transaction_id,transactions,transaction_id,many-to-one (nullable),Optional link to triggering transaction
+fraud_alerts,transaction_id,transactions,transaction_id,many-to-one,Alert raised against a transaction
+fraud_alerts,card_id,credit_cards,card_id,many-to-one,Card associated with alert
+disputes,transaction_id,transactions,transaction_id,many-to-one,Dispute on a transaction
+disputes,card_id,credit_cards,card_id,many-to-one,Card associated with dispute
+chargeback_cases,dispute_id,disputes,dispute_id,many-to-one,Chargeback escalated from a dispute
+chargeback_cases,card_id,credit_cards,card_id,many-to-one,Card associated with chargeback
+velocity_hits,rule_id,dim_velocity_rules,rule_id,many-to-one,Rule that was triggered
+velocity_hits,transaction_id,transactions,transaction_id,many-to-one,Transaction that triggered the rule
+velocity_hits,card_id,credit_cards,card_id,many-to-one,Card associated with velocity hit
+merchant_blacklist,merchant_id,merchants,merchant_id,many-to-one,Blacklisted merchant
+rewards,card_id,credit_cards,card_id,one-to-one,One rewards account per card
+rewards,customer_id,customers,customer_id,many-to-one,Customer enrolled in rewards
+reward_redemptions,reward_id,rewards,reward_id,many-to-one,Redemption against a rewards account
+reward_redemptions,card_id,credit_cards,card_id,many-to-one,Card used for redemption
+reward_redemptions,customer_id,customers,customer_id,many-to-one,Customer who redeemed
+kyc_documents,customer_id,customers,customer_id,many-to-one,KYC documents per customer
+contact_history,customer_id,customers,customer_id,many-to-one,Support contacts per customer
+emi_plans,transaction_id,transactions,transaction_id,many-to-one,EMI plan from a purchase
+emi_plans,card_id,credit_cards,card_id,many-to-one,Card associated with EMI plan
+notifications,customer_id,customers,customer_id,many-to-one,Notifications per customer
+credit_limit_history,card_id,credit_cards,card_id,many-to-one,Limit change history per card
+interest_rates,card_id,credit_cards,card_id,many-to-one,Rate schedule per card

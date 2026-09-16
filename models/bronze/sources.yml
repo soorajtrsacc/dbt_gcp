@@ -1,0 +1,277 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw synthetic credit-card data in BigQuery. Source of truth for all downstream medallion layers."
+    database: acn-uki-ds-data-ai-project
+    schema: credit_card_synt
+    tables:
+      # ── Reference / Dimension tables ────────────────────────────────────────
+      - name: dim_card_types
+        description: "Reference table for card product types (Classic, Gold, Platinum, etc.)."
+        columns:
+          - name: card_type_id
+            description: "Primary key — card type code (e.g. CT001)."
+          - name: card_name
+            description: "Human-readable card product name."
+          - name: network
+            description: "Card network: VISA, MASTERCARD, AMEX."
+          - name: tier
+            description: "Product tier: Classic, Gold, Platinum, World, Student, Business."
+          - name: annual_fee
+            description: "Annual fee in GBP."
+          - name: reward_rate
+            description: "Reward points earned per £1 spent."
+          - name: lounge_access
+            description: "Whether card includes airport lounge access."
+          - name: travel_insurance
+            description: "Whether card includes travel insurance."
+
+      - name: dim_merchant_categories
+        description: "ISO MCC lookup — maps merchant category codes to names and groups."
+        columns:
+          - name: mcc_code
+            description: "Primary key — ISO 4-digit Merchant Category Code."
+          - name: category_name
+            description: "Descriptive name for the MCC."
+          - name: category_group
+            description: "High-level grouping (Retail, Travel, Healthcare, etc.)."
+
+      - name: dim_transaction_types
+        description: "Reference for transaction type classification."
+        columns:
+          - name: txn_type_id
+            description: "Primary key — transaction type code (TT01–TT08)."
+          - name: type_name
+            description: "Human-readable transaction type label."
+          - name: is_credit
+            description: "True if transaction adds credit to the account (refund, payment, reward redemption)."
+
+      - name: dim_velocity_rules
+        description: "Fraud velocity rule definitions used to trigger alerts and blocks."
+        columns:
+          - name: rule_id
+            description: "Primary key — velocity rule code (VR001–VR007)."
+          - name: rule_name
+            description: "Rule description."
+          - name: rule_type
+            description: "Rule category: Count, Amount, MCC."
+          - name: threshold
+            description: "Numeric threshold that triggers the rule."
+          - name: window_hours
+            description: "Rolling window size in hours."
+          - name: action
+            description: "Action taken when rule fires: Alert or Block."
+
+      # ── Core entities ────────────────────────────────────────────────────────
+      - name: customers
+        description: "Individual credit-card customers — 500 synthetic records."
+        columns:
+          - name: customer_id
+            description: "Primary key — UUID."
+
+      - name: addresses
+        description: "Customer address records (1–3 per customer, multiple types)."
+        columns:
+          - name: address_id
+            description: "Primary key — UUID."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+
+      - name: accounts
+        description: "Bank accounts linked to customers (Current, Savings, Joint)."
+        columns:
+          - name: account_id
+            description: "Primary key — UUID."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+
+      - name: credit_cards
+        description: "Credit card instruments issued to customers."
+        columns:
+          - name: card_id
+            description: "Primary key — UUID."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+          - name: account_id
+            description: "Foreign key → accounts.account_id."
+          - name: card_type_id
+            description: "Foreign key → dim_card_types.card_type_id."
+
+      - name: merchants
+        description: "Merchant records — 300 synthetic UK/international merchants."
+        columns:
+          - name: merchant_id
+            description: "Primary key — UUID."
+          - name: mcc_code
+            description: "Foreign key → dim_merchant_categories.mcc_code."
+
+      # ── Transactional ────────────────────────────────────────────────────────
+      - name: transactions
+        description: "Card transaction records (~40 per active card)."
+        columns:
+          - name: transaction_id
+            description: "Primary key — UUID."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+          - name: merchant_id
+            description: "Foreign key → merchants.merchant_id."
+          - name: txn_type_id
+            description: "Foreign key → dim_transaction_types.txn_type_id."
+          - name: mcc_code
+            description: "Merchant category code at time of transaction."
+
+      - name: statements
+        description: "Monthly billing statements per credit card."
+        columns:
+          - name: statement_id
+            description: "Primary key — UUID."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: payments
+        description: "Payment records against statements."
+        columns:
+          - name: payment_id
+            description: "Primary key — UUID."
+          - name: statement_id
+            description: "Foreign key → statements.statement_id."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: fees
+        description: "Fee charges applied to cards (annual, late payment, overlimit, etc.)."
+        columns:
+          - name: fee_id
+            description: "Primary key — UUID."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+          - name: transaction_id
+            description: "Optional FK → transactions.transaction_id (nullable)."
+
+      # ── Risk & Fraud ─────────────────────────────────────────────────────────
+      - name: fraud_alerts
+        description: "Fraud and suspicious-activity alerts raised against transactions."
+        columns:
+          - name: alert_id
+            description: "Primary key — UUID."
+          - name: transaction_id
+            description: "Foreign key → transactions.transaction_id."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: disputes
+        description: "Customer-initiated transaction disputes."
+        columns:
+          - name: dispute_id
+            description: "Primary key — UUID."
+          - name: transaction_id
+            description: "Foreign key → transactions.transaction_id."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: chargeback_cases
+        description: "Formal chargeback cases escalated from disputes."
+        columns:
+          - name: chargeback_id
+            description: "Primary key — UUID."
+          - name: dispute_id
+            description: "Foreign key → disputes.dispute_id."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: velocity_hits
+        description: "Instances where a velocity rule was triggered by a transaction."
+        columns:
+          - name: hit_id
+            description: "Primary key — UUID."
+          - name: rule_id
+            description: "Foreign key → dim_velocity_rules.rule_id."
+          - name: transaction_id
+            description: "Foreign key → transactions.transaction_id."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: merchant_blacklist
+        description: "Merchants flagged or blacklisted for fraud, AML, or regulatory reasons."
+        columns:
+          - name: blacklist_id
+            description: "Primary key — UUID."
+          - name: merchant_id
+            description: "Foreign key → merchants.merchant_id."
+
+      # ── Rewards ──────────────────────────────────────────────────────────────
+      - name: rewards
+        description: "Rewards programme enrollment and balance per card."
+        columns:
+          - name: reward_id
+            description: "Primary key — UUID."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+
+      - name: reward_redemptions
+        description: "Reward point redemption events."
+        columns:
+          - name: redemption_id
+            description: "Primary key — UUID."
+          - name: reward_id
+            description: "Foreign key → rewards.reward_id."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+
+      # ── Compliance & Support ─────────────────────────────────────────────────
+      - name: kyc_documents
+        description: "KYC identity documents submitted and verified per customer."
+        columns:
+          - name: kyc_id
+            description: "Primary key — UUID."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+
+      - name: contact_history
+        description: "Customer service interaction log."
+        columns:
+          - name: contact_id
+            description: "Primary key — UUID."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+
+      # ── Products ─────────────────────────────────────────────────────────────
+      - name: emi_plans
+        description: "Instalment plans created from large purchase transactions."
+        columns:
+          - name: emi_plan_id
+            description: "Primary key — UUID."
+          - name: transaction_id
+            description: "Foreign key → transactions.transaction_id."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: notifications
+        description: "Notifications sent to customers across all channels."
+        columns:
+          - name: notification_id
+            description: "Primary key — UUID."
+          - name: customer_id
+            description: "Foreign key → customers.customer_id."
+
+      # ── Audit / History ──────────────────────────────────────────────────────
+      - name: credit_limit_history
+        description: "Historical record of credit limit changes per card."
+        columns:
+          - name: limit_history_id
+            description: "Primary key — UUID."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
+
+      - name: interest_rates
+        description: "Interest rate schedule per card and rate type."
+        columns:
+          - name: rate_id
+            description: "Primary key — UUID."
+          - name: card_id
+            description: "Foreign key → credit_cards.card_id."
