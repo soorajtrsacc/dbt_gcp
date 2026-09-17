@@ -43,8 +43,8 @@ models:
         +cluster_by: ["customer_id", "merchant_id"]
       gold_account_financial_summary:
         +partition_by:
-          field: gold_created_ts
-          data_type: timestamp
+          field: opened_date
+          data_type: date
           granularity: day
     ops:
       +schema: ops

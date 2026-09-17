@@ -78,6 +78,23 @@ emi_agg as (
     from {{ ref('silver_emi_plans') }} e
     join {{ ref('silver_credit_cards') }} cc using (card_id)
     group by cc.account_id
+),
+
+payments_agg as (
+    select
+        cc.account_id,
+        count(distinct p.payment_id)                            as payment_event_count,
+        round(sum(p.amount), 2)                                 as total_amount_paid,
+        round(min(p.amount), 2)                                 as min_payment_amount,
+        round(max(p.amount), 2)                                 as max_payment_amount,
+        round(avg(p.amount), 2)                                 as avg_payment_amount,
+        max(p.payment_date)                                     as last_payment_date,
+        countif(p.is_minimum_only)                              as minimum_only_payment_count,
+        countif(p.status = 'Completed')                         as completed_payment_count,
+        countif(p.status = 'Failed')                            as failed_payment_count
+    from {{ ref('silver_payments') }} p
+    join {{ ref('silver_credit_cards') }} cc on cc.card_id = p.card_id
+    group by cc.account_id
 )
 
 select
@@ -135,6 +152,17 @@ select
     coalesce(em.total_emi_payable, 0)                   as total_emi_payable,
     coalesce(em.active_emi_plans, 0)                    as active_emi_plans,
 
+    -- Payment events (granular payment records)
+    coalesce(pa.payment_event_count, 0)                 as payment_event_count,
+    coalesce(pa.total_amount_paid, 0)                   as total_amount_paid,
+    coalesce(pa.min_payment_amount, 0)                  as min_payment_amount,
+    coalesce(pa.max_payment_amount, 0)                  as max_payment_amount,
+    coalesce(pa.avg_payment_amount, 0)                  as avg_payment_amount,
+    pa.last_payment_date,
+    coalesce(pa.minimum_only_payment_count, 0)          as minimum_only_payment_count,
+    coalesce(pa.completed_payment_count, 0)             as completed_payment_count,
+    coalesce(pa.failed_payment_count, 0)                as failed_payment_count,
+
     -- Delinquency bucket
     case
         when coalesce(sa.missed_payment_count, 0) = 0              then 'Current'
@@ -154,3 +182,4 @@ left join fees_agg fa       using (account_id)
 left join current_rate cr   using (account_id)
 left join current_limit cl  using (account_id)
 left join emi_agg em        using (account_id)
+left join payments_agg pa   using (account_id)
